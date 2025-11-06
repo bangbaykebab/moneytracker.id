@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoneyTracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+</head>
+<body class="bg-gray-100 font-sans">
+    <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-80">
+            <h2 class="text-xl font-bold mb-4">Enter PIN</h2>
+            <input id="pin-input" type="password" class="w-full p-2 border rounded mb-4" placeholder="PIN">
+            <button id="login-btn" class="w-full bg-blue-500 text-white p-2 rounded">Login</button>
+            <p id="pin-error" class="text-red-500 mt-2 hidden">Incorrect PIN</p>
+        </div>
+    </div>
+
+    <div id="app" class="hidden">
+        <header class="bg-blue-600 text-white p-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">MoneyTracker</h1>
+                <nav class="mt-2">
+                    <button id="transactions-tab" class="tab-btn bg-blue-700 px-4 py-2 rounded mr-2">Transactions</button>
+                    <button id="reports-tab" class="tab-btn px-4 py-2 rounded mr-2">Reports</button>
+                    <button id="settings-tab" class="tab-btn px-4 py-2 rounded">Settings</button>
+                </nav>
+            </div>
+            <div id="balance-display" class="text-xl font-bold">Balance: $0.00</div>
+        </header>
+
+        <main class="p-4">
+            <div id="transactions-section">
+                <h2 class="text-xl font-bold mb-4">Log Transaction</h2>
+                <form id="transaction-form" class="bg-white p-4 rounded shadow">
+                    <input id="amount" type="number" placeholder="Amount" class="w-full p-2 border rounded mb-2" required>
+                    <input id="date" type="date" class="w-full p-2 border rounded mb-2" required>
+                    <select id="category" class="w-full p-2 border rounded mb-2" required>
+                        <option value="">Select Category</option>
+                        <option value="food">Food</option>
+                        <option value="transport">Transport</option>
+                        <option value="entertainment">Entertainment</option>
+                        <option value="bills">Bills</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <input id="notes" type="text" placeholder="Notes" class="w-full p-2 border rounded mb-2">
+                    <button type="submit" class="w-full bg-green-500 text-white p-2 rounded">Add Transaction</button>
+                </form>
+                <h3 class="text-lg font-bold mt-4">Recent Transactions</h3>
+                <ul id="transactions-list" class="bg-white p-4 rounded shadow mt-2"></ul>
+            </div>
+
+            <div id="reports-section" class="hidden">
+                <h2 class="text-xl font-bold mb-4">Financial Reports</h2>
+                <div class="mb-4">
+                    <select id="filter-period" class="p-2 border rounded mr-2">
+                        <option value="day">Day</option>
+                        <option value="week">Week</option>
+                        <option value="month">Month</option>
+                    </select>
+                    <input id="filter-date" type="date" class="p-2 border rounded">
+                    <button id="apply-filter" class="bg-blue-500 text-white p-2 rounded ml-2">Apply</button>
+                </div>
+                <canvas id="chart" class="bg-white p-4 rounded shadow"></canvas>
+                <table id="summary-table" class="bg-white p-4 rounded shadow mt-4 w-full"></table>
+            </div>
+
+            <div id="settings-section" class="hidden">
+                <h2 class="text-xl font-bold mb-4">Settings</h2>
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="font-bold">Change PIN</h3>
+                    <input id="new-pin" type="password" placeholder="New PIN" class="w-full p-2 border rounded mb-2">
+                    <button id="change-pin-btn" class="bg-blue-500 text-white p-2 rounded">Change PIN</button>
+                </div>
+                <div class="bg-white p-4 rounded shadow mt-4">
+                    <h3 class="font-bold">Budgeting</h3>
+                    <select id="budget-category" class="w-full p-2 border rounded mb-2">
+                        <option value="">Select Category</option>
+                        <option value="food">Food</option>
+                        <option value="transport">Transport</option>
+                        <option value="entertainment">Entertainment</option>
+                        <option value="bills">Bills</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <input id="budget-limit" type="number" placeholder="Monthly Limit" class="w-full p-2 border rounded mb-2">
+                    <button id="set-budget-btn" class="bg-green-500 text-white p-2 rounded">Set Budget</button>
+                    <ul id="budgets-list" class="mt-2"></ul>
+                </div>
+                <div class="bg-white p-4 rounded shadow mt-4">
+                    <h3 class="font-bold">Reminders</h3>
+                    <button id="enable-reminders-btn" class="bg-yellow-500 text-white p-2 rounded">Enable Daily Reminders</button>
+                </div>
+                <div class="bg-white p-4 rounded shadow mt-4">
+                    <h3 class="font-bold">Export Data</h3>
+                    <button id="export-excel-btn" class="bg-blue-500 text-white p-2 rounded mr-2">Export to Excel</button>
+                    <button id="export-pdf-btn" class="bg-red-500 text-white p-2 rounded">Export to PDF</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Data storage
+        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        let budgets = JSON.parse(localStorage.getItem('budgets')) || {};
+        let pin = localStorage.getItem('pin') || '1234';
+        let chart;
+
+        // Function to update balance display
+        function updateBalance() {
+            const income = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const expenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0);
+            const balance = income - expenses;
+            const balanceElement = document.getElementById('balance-display');
+            balanceElement.textContent = `Balance: $${balance.toFixed(2)}`;
+            // Color coding: green for positive, red for negative
+            if (balance > 0) {
+                balanceElement.style.color = 'green';
+            } else if (balance < 0) {
+                balanceElement.style.color = 'red';
+            } else {
+                balanceElement.style.color = 'white';
+            }
+        }
+
+        // Login
+        document.getElementById('login-btn').addEventListener('click', () => {
+            const enteredPin = document.getElementById('pin-input').value;
+            if (enteredPin === pin) {
+                document.getElementById('login-modal').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+                loadTransactions();
+                updateBalance();
+            } else {
+                document.getElementById('pin-error').classList.remove('hidden');
+            }
+        });
+
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('bg-blue-700'));
+                btn.classList.add('bg-blue-700');
+                document.querySelectorAll('main > div').forEach(sec => sec.classList.add('hidden'));
+                document.getElementById(btn.id.replace('-tab', '-section')).classList.remove('hidden');
+            });
+        });
+
+        // Add transaction
+        document.getElementById('transaction-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const transaction = {
+                id: Date.now(),
+                amount: parseFloat(document.getElementById('amount').value),
+                date: document.getElementById('date').value,
+                category: document.getElementById('category').value,
+                notes: document.getElementById('notes').value,
+                type: parseFloat(document.getElementById('amount').value) > 0 ? 'income' : 'expense'
+            };
+            transactions.push(transaction);
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+            loadTransactions();
+            updateBalance();
+            e.target.reset();
+        });
+
+        // Load transactions
+        function loadTransactions() {
+            const list = document.getElementById('transactions-list');
+            list.innerHTML = '';
+            transactions.forEach(t => {
+                const li = document.createElement('li');
+                li.className = 'p-2 border-b flex justify-between items-center';
+                li.innerHTML = `
+                    <span>${t.date}: ${t.type === 'income' ? '+' : '-'}$${Math.abs(t.amount)} (${t.category}) - ${t.notes}</span>
+                    <button class="delete-btn bg-red-500 text-white px-2 py-1 rounded text-sm" data-id="${t.id}">Delete</button>
+                `;
+                list.appendChild(li);
+            });
+
+            // Add delete event listeners
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = parseInt(e.target.getAttribute('data-id'));
+                    transactions = transactions.filter(t => t.id !== id);
+                    localStorage.setItem('transactions', JSON.stringify(transactions));
+                    loadTransactions();
+                    updateBalance();
+                });
+            });
+        }
+
+        // Reports and filtering
+        document.getElementById('apply-filter').addEventListener('click', () => {
+            const period = document.getElementById('filter-period').value;
+            const date = document.getElementById('filter-date').value;
+            let filtered = transactions;
+            if (date) {
+                const start = new Date(date);
+                let end = new Date(date);
+                if (period === 'day') {
+                    end.setDate(start.getDate() + 1);  // Fix: Include the full day
+                } else if (period === 'week') {
+                    end.setDate(start.getDate() + 7);
+                } else if (period === 'month') {
+                    end.setMonth(start.getMonth() + 1);
+                }
+                filtered = transactions.filter(t => new Date(t.date) >= start && new Date(t.date) < end);
+            }
+            renderReports(filtered);
+        });
+
+        function renderReports(data) {
+            const income = data.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const expenses = data.filter(t => t.type === 'expense').reduce((sum, t) => sum + Math.abs(t.amount), 0);
+            const categories = {};
+            data.forEach(t => {
+                if (!categories[t.category]) categories[t.category] = 0;
+                categories[t.category] += Math.abs(t.amount);
+            });
+
+            // Chart
+            if (chart) chart.destroy();
+            chart = new Chart(document.getElementById('chart'), {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(categories),
+                    datasets: [{ data: Object.values(categories), backgroundColor: ['#ff6384', '#36a2eb', '#cc65fe', '#ffce56'] }]
+                }
+            });
+
+            // Table
+            const table = document.getElementById('summary-table');
+            table.innerHTML = `
+                <tr><th class="border p-2">Total Income</th><td class="border p-2">$${income}</td></tr>
+                <tr><th class="border p-2">Total Expenses</th><td class="border p-2">$${expenses}</td></tr>
+                <tr><th class="border p-2">Net</th><td class="border p-2">$${income - expenses}</td></tr>
+            `;
+        }
+
+        // Settings
+        document.getElementById('change-pin-btn').addEventListener('click', () => {
+            const newPin = document.getElementById('new-pin').value;
+            if (newPin) {
+                pin = newPin;
+                localStorage.setItem('pin', pin);
+                alert('PIN changed!');
+            }
+        });
+
+        document.getElementById('set-budget-btn').addEventListener('click', () => {
+            const cat = document.getElementById('budget-category').value;
+            const limit = parseFloat(document.getElementById('budget-limit').value);
+            if (cat && limit) {
+                budgets[cat] = limit;
+                localStorage.setItem('budgets', JSON.stringify(budgets));
+                loadBudgets();
+            }
+        });
+
+        function loadBudgets() {
+            const list = document.getElementById('budgets-list');
+            list.innerHTML = '';
+            Object.entries(budgets).forEach(([cat, limit]) => {
+                const li = document.createElement('li');
+                li.textContent = `${cat}: $${limit}`;
+                list.appendChild(li);
+            });
+        }
+        loadBudgets();
+
+        // Reminders
+        document.getElementById('enable-reminders-btn').addEventListener('click', () => {
+            if ('Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        setInterval(() => {
+                            new Notification('MoneyTracker Reminder', { body: 'Log your transactions or pay bills!' });
+                        }, 24 * 60 * 60 * 1000); // Daily
+                        alert('Daily reminders enabled!');
+                    }
+                });
+            }
+        });
+
+        // Export
+        document.getElementById('export-excel-btn').addEventListener('click', () => {
+            const ws = XLSX.utils.json_to_sheet(transactions);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+            XLSX.writeFile(wb, 'MoneyTracker.xlsx');
+        });
+
+        document.getElementById('export-pdf-btn').addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text('MoneyTracker Transactions', 10, 10);
+            transactions.forEach((t, i) => {
+                doc.text(`${t.date}: ${t.amount} (${t.category})`, 10, 20 + i * 10);
+            });
+            doc.save('MoneyTracker.pdf');
+        });
+
+        // Initial load
+        loadTransactions();
+        updateBalance();
+    </script>
+</body>
+</html>
